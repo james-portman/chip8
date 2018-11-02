@@ -108,6 +108,137 @@ Chip-8 draws graphics on screen through the use of sprites. A sprite is a group 
 
 Programs may also refer to a group of sprites representing the hexadecimal digits 0 through F. These sprites are 5 bytes long, or 8x5 pixels. The data should be stored in the interpreter area of Chip-8 memory (0x000 to 0x1FF). Below is a listing of each character's bytes, in binary and hexadecimal:
 """
+display = [0] * 64 * 32
+
+# TODO: put sprites into ram? (should be in 0x000 to 0x1FF)
+sprites = [] * 16
+
+sprites[0] = [
+    b'11110000',
+    b'10010000',
+    b'10010000',
+    b'10010000',
+    b'11110000'
+    ]
+sprites[1] = [
+    b'00100000',
+    b'01100000',
+    b'00100000',
+    b'00100000',
+    b'01110000'
+    ]
+
+sprites[2] = [
+    b'11110000',
+    b'00010000',
+    b'11110000',
+    b'10000000',
+    b'11110000'
+    ]
+
+sprites[3] = [
+    b'11110000',
+    b'00010000',
+    b'11110000',
+    b'00010000',
+    b'11110000'
+    ]
+
+sprites[4] = [
+    b'10010000',
+    b'10010000',
+    b'11110000',
+    b'00010000',
+    b'00010000'
+    ]
+
+sprites[5] = [
+    b'11110000',
+    b'10000000',
+    b'11110000',
+    b'00010000',
+    b'11110000'
+    ]
+
+sprites[6] = [
+    b'11110000',
+    b'10000000',
+    b'11110000',
+    b'10010000',
+    b'11110000'
+    ]
+
+sprites[7] = [
+    b'11110000',
+    b'00010000',
+    b'00100000',
+    b'01000000',
+    b'01000000'
+    ]
+
+sprites[8] = [
+    b'11110000',
+    b'10010000',
+    b'11110000',
+    b'10010000',
+    b'11110000'
+    ]
+
+sprites[9] = [
+    b'11110000',
+    b'10010000',
+    b'11110000',
+    b'00010000',
+    b'11110000'
+    ]
+
+sprites[int("A", 16)] = [
+    b'11110000',
+    b'10010000',
+    b'11110000',
+    b'10010000',
+    b'10010000'
+    ]
+
+sprites[int("B", 16)] = [
+    b'11100000',
+    b'10010000',
+    b'11100000',
+    b'10010000',
+    b'11100000'
+    ]
+
+sprites[int("C", 16)] = [
+    b'11110000',
+    b'10000000',
+    b'10000000',
+    b'10000000',
+    b'11110000'
+    ]
+
+sprites[int("D", 16)] = [
+    b'11100000',
+    b'10010000',
+    b'10010000',
+    b'10010000',
+    b'11100000'
+    ]
+
+sprites[int("E", 16)] = [
+    b'11110000',
+    b'10000000',
+    b'11110000',
+    b'10000000',
+    b'11110000'
+    ]
+
+sprites[int("F", 16)] = [
+    b'11110000',
+    b'10000000',
+    b'11110000',
+    b'10000000',
+    b'10000000'
+    ]
 
 
 """
@@ -224,59 +355,86 @@ while True:
         "Adds the value kk to the value of register Vx, then stores the result in Vx."
         continue
 
-    if first_nibble == int("8", 16) and fourth_nibble == 0:
-        "Stores the value of register Vy in register Vx"
-        print "8xy0 - LD Vx, Vy - Set Vx = Vy"
-        register_v[second_nibble] = register_v[third_nibble]
+    if first_nibble == int("8", 16):
+        if fourth_nibble == 0:
+            "Stores the value of register Vy in register Vx"
+            print "8xy0 - LD Vx, Vy - Set Vx = Vy"
+            register_v[second_nibble] = register_v[third_nibble]
+            continue
 
-    """
-    8xy1 - OR Vx, Vy
-    Set Vx = Vx OR Vy.
+        if fourth_nibble == 1:
+            "Performs a bitwise OR on the values of Vx and Vy, then stores the result in Vx \
+            A bitwise OR compares the corrseponding bits from two values, and if either bit is 1, then the same bit in the result is also 1. Otherwise, it is 0"
+            print"8xy1 - OR Vx, Vy - Set Vx = Vx OR Vy"
+            register_v[second_nibble] = [second_nibble] | register_v[third_nibble]
+            continue
 
-    Performs a bitwise OR on the values of Vx and Vy, then stores the result in Vx. A bitwise OR compares the corrseponding bits from two values, and if either bit is 1, then the same bit in the result is also 1. Otherwise, it is 0.
+        if fourth_nibble == 2:
+            "Performs a bitwise AND on the values of Vx and Vy, then stores the result in Vx \
+            A bitwise AND compares the corrseponding bits from two values, and if both bits are 1, then the same bit in the result is also 1. Otherwise, it is 0."
+            print "8xy2 - AND Vx, Vy - Set Vx = Vx AND Vy"
+            register_v[second_nibble] = register_v[second_nibble] & register_v[third_nibble]
+            continue
 
+        if fourth_nibble == 3:
+            print "8xy3 - XOR Vx, Vy - Set Vx = Vx XOR Vy"
+            "Performs a bitwise exclusive OR on the values of Vx and Vy, then stores the result in Vx \
+            An exclusive OR compares the corrseponding bits from two values, and if the bits are not both the same, then the corresponding bit in the result is set to 1. Otherwise, it is 0."
+            register_v[second_nibble] = register_v[second_nibble] ^ register_v[third_nibble]
+            continue
 
-    8xy2 - AND Vx, Vy
-    Set Vx = Vx AND Vy.
+        if fourth_nibble == 4:
+            "The values of Vx and Vy are added together. If the result is greater than 8 bits (i.e., > 255,) VF is set to 1, otherwise 0. Only the lowest 8 bits of the result are kept, and stored in Vx."
+            print "8xy4 - ADD Vx, Vy - Set Vx = Vx + Vy, set VF = carry"
+            register_v[second_nibble] += register_v[third_nibble]
+            if register_v[second_nibble] > 255:
+                register_v[second_nibble] = 255
+                register_v[int("F", 16)] = 1
+            else:
+                register_v[int("F", 16)] = 0
+            continue
 
-    Performs a bitwise AND on the values of Vx and Vy, then stores the result in Vx. A bitwise AND compares the corrseponding bits from two values, and if both bits are 1, then the same bit in the result is also 1. Otherwise, it is 0.
+        if fourth_nibble == 5:
+            "If Vx > Vy, then VF is set to 1, otherwise 0. Then Vy is subtracted from Vx, and the results stored in Vx."
+            print "8xy5 - SUB Vx, Vy - Set Vx = Vx - Vy, set VF = NOT borrow"
+            if register_v[second_nibble] > register_v[third_nibble]:
+                register_v[int("F", 16)] = 1
+            else:
+                register_v[int("F", 16)] = 0
+            register_v[second_nibble] -= register_v[third_nibble]
+            continue
 
+        if fourth_nibble == 6:
+            "If the least-significant bit of Vx is 1, then VF is set to 1, otherwise 0. Then Vx is divided by 2."
+            print "8xy6 - SHR Vx {, Vy} - Set Vx = Vx SHR 1"
+            if register_v[second_nibble] & 1 == 1:
+                register_v[int("f", 16)] = 1
+            else:
+                register_v[int("f", 16)] = 0
+            register_v[second_nibble] >> 1
+            continue
 
-    8xy3 - XOR Vx, Vy
-    Set Vx = Vx XOR Vy.
+        if fourth_nibble == 7:
+            "If Vy > Vx, then VF is set to 1, otherwise 0. Then Vx is subtracted from Vy, and the results stored in Vx."
+            print "8xy7 - SUBN Vx, Vy - Set Vx = Vy - Vx, set VF = NOT borrow"
+            if register_v[third_nibble] > register_v[second_nibble]:
+                register_v[int("f", 16)] = 1
+            else:
+                register_v[int("f", 16)] = 0
+            register_v[second_nibble] = register_v[third_nibble] - register_v[second_nibble]
+            continue
 
-    Performs a bitwise exclusive OR on the values of Vx and Vy, then stores the result in Vx. An exclusive OR compares the corrseponding bits from two values, and if the bits are not both the same, then the corresponding bit in the result is set to 1. Otherwise, it is 0.
+        if fourth_nibble == int("E", 16):
+            "If the most-significant bit of Vx is 1, then VF is set to 1, otherwise to 0. Then Vx is multiplied by 2."
+            print "8xyE - SHL Vx {, Vy} - Set Vx = Vx SHL 1"
+            if register_v[second_nibble] >> 3 == 1:
+                register_v[int("f", 16)] = 1
+            else:
+                register_v[int("f", 16)] = 0
+            register_v[second_nibble] << 1
+            continue
 
-
-    8xy4 - ADD Vx, Vy
-    Set Vx = Vx + Vy, set VF = carry.
-
-    The values of Vx and Vy are added together. If the result is greater than 8 bits (i.e., > 255,) VF is set to 1, otherwise 0. Only the lowest 8 bits of the result are kept, and stored in Vx.
-
-
-    8xy5 - SUB Vx, Vy
-    Set Vx = Vx - Vy, set VF = NOT borrow.
-
-    If Vx > Vy, then VF is set to 1, otherwise 0. Then Vy is subtracted from Vx, and the results stored in Vx.
-
-
-    8xy6 - SHR Vx {, Vy}
-    Set Vx = Vx SHR 1.
-
-    If the least-significant bit of Vx is 1, then VF is set to 1, otherwise 0. Then Vx is divided by 2.
-
-
-    8xy7 - SUBN Vx, Vy
-    Set Vx = Vy - Vx, set VF = NOT borrow.
-
-    If Vy > Vx, then VF is set to 1, otherwise 0. Then Vx is subtracted from Vy, and the results stored in Vx.
-
-
-    8xyE - SHL Vx {, Vy}
-    Set Vx = Vx SHL 1.
-
-    If the most-significant bit of Vx is 1, then VF is set to 1, otherwise to 0. Then Vx is multiplied by 2.
-    """
+        # end of 8 opcodes
 
     if first_nibble == int("9", 16):
         print "9xy0 - SNE Vx, Vy - Skip next instruction if Vx != Vy"
@@ -333,6 +491,8 @@ while True:
     Fx15 - LD DT, Vx
     Set delay timer = Vx.
     DT is set equal to the value of Vx.
+            else:
+                register_v[int("f", 16)] = 0
 
 
     Fx18 - LD ST, Vx
