@@ -211,7 +211,9 @@ The sound produced by the Chip-8 interpreter has only one tone.
 The frequency of this tone is decided by the author of the interpreter.
 """
 delay_timer = 0
+delay_timer_updated = 0
 sound_timer = 0
+sound_timer_updated = 0
 
 """
 There are also some "pseudo-registers" which are not accessable from Chip-8 programs.
@@ -264,26 +266,26 @@ also super chip 48 has additional stuff
 # opcodes are all 2 bytes
 # init bytes variable so the first while loop runs
 while True:
+    # TODO: should run at 500hz apparently
+    # time.sleep(int(1)/500)
+    time.sleep(0.001)
 
-    # TODO: sound timer
+    # TODO: make sound
+    if sound_timer > 0:
+        # decreases by 1 at 60hz
+        if time.time() - sound_timer_updated >= float(1) / 60:
+            sound_timer -= 1
+            sound_timer_updated = time.time()
 
     if delay_timer > 0:
         # decreases by 1 at 60hz
-        if DEBUG:
-            print "sleeping for delay timer, currently %s" % delay_timer
-        time.sleep(float(1) / 60 * delay_timer)
-        delay_timer = 0
+        if time.time() - delay_timer_updated >= float(1) / 60:
+            delay_timer -= 1
+            delay_timer_updated = time.time()
 
-    # print "PC: %s" % program_counter
-    # print "SP: %s" % stack_pointer
     bytes = ram[program_counter] + ram[program_counter + 1]
     program_counter += 2
-    # human readable hex out:
-    # print map(hex, map(ord, bytes))
-    # if byte == b'\x6a':
-    #     print "got 0x6a"
 
-    # opcode = bytes[0] & int(ord(b'\x0F'))
     if DEBUG:
         print map(hex, bytes)
 
@@ -292,13 +294,6 @@ while True:
     third_nibble = bytes[1] >> 4
     fourth_nibble = bytes[1] & int("F", 16)
 
-    """
-    0nnn - SYS addr
-    Jump to a machine code routine at nnn.
-    This instruction is only used on the old computers on which Chip-8 was originally implemented.
-    It is ignored by modern interpreters.
-    """
-
     if bytes[0] == 0 and bytes[1] == int("E0", 16):
         if DEBUG:
             print "00E0 - CLS - Clear the display"
@@ -306,6 +301,14 @@ while True:
             for cell in range(len(display[row])):
                 display[row][cell] = 0
         stdscr.refresh()
+        continue
+
+    if first_nibble == int("1", 16):
+        "This instruction is only used on the old computers on which Chip-8 was originally implemented. It is ignored by modern interpreters"
+        if DEBUG:
+            print "0nnn - SYS addr - Jump to a machine code routine at nnn"
+        first = second_nibble << 4 << 4
+        program_counter = first + bytes[1]
         continue
 
     if bytes[0] == 0 and bytes[1] == int("EE", 16):
@@ -361,8 +364,7 @@ while True:
         "The interpreter puts the value kk into register Vx."
         if DEBUG:
             print "6xkk - LD Vx, byte - Set Vx = kk"
-        reg = second_nibble
-        register_v[reg] = bytes[1]
+        register_v[second_nibble] = bytes[1]
         continue
 
     if first_nibble == int("7", 16):
@@ -386,7 +388,7 @@ while True:
             A bitwise OR compares the corrseponding bits from two values, and if either bit is 1, then the same bit in the result is also 1. Otherwise, it is 0"
             if DEBUG:
                 print "8xy1 - OR Vx, Vy - Set Vx = Vx OR Vy"
-            register_v[second_nibble] = [second_nibble] | register_v[third_nibble]
+            register_v[second_nibble] = register_v[second_nibble] | register_v[third_nibble]
             continue
 
         if fourth_nibble == 2:
@@ -423,20 +425,18 @@ while True:
                 print "8xy5 - SUB Vx, Vy - Set Vx = Vx - Vy, set VF = NOT borrow"
             if register_v[second_nibble] > register_v[third_nibble]:
                 register_v[int("F", 16)] = 1
+                register_v[second_nibble] -= register_v[third_nibble]
             else:
                 register_v[int("F", 16)] = 0
-            register_v[second_nibble] -= register_v[third_nibble]
+                register_v[second_nibble] = 256 + register_v[second_nibble] - register_v[third_nibble]
             continue
 
         if fourth_nibble == 6:
             "If the least-significant bit of Vx is 1, then VF is set to 1, otherwise 0. Then Vx is divided by 2."
             if DEBUG:
                 print "8xy6 - SHR Vx {, Vy} - Set Vx = Vx SHR 1"
-            if register_v[second_nibble] & 1 == 1:
-                register_v[int("f", 16)] = 1
-            else:
-                register_v[int("f", 16)] = 0
-            register_v[second_nibble] >> 1
+            register_v[int("f", 16)] = register_v[second_nibble] & 1
+            register_v[second_nibble] = register_v[second_nibble] >> 1
             continue
 
         if fourth_nibble == 7:
@@ -445,20 +445,18 @@ while True:
                 print "8xy7 - SUBN Vx, Vy - Set Vx = Vy - Vx, set VF = NOT borrow"
             if register_v[third_nibble] > register_v[second_nibble]:
                 register_v[int("f", 16)] = 1
+                register_v[second_nibble] = register_v[third_nibble] - register_v[second_nibble]
             else:
                 register_v[int("f", 16)] = 0
-            register_v[second_nibble] = register_v[third_nibble] - register_v[second_nibble]
+                register_v[second_nibble] = 256 + register_v[third_nibble] - register_v[second_nibble]
             continue
 
         if fourth_nibble == int("E", 16):
             "If the most-significant bit of Vx is 1, then VF is set to 1, otherwise to 0. Then Vx is multiplied by 2."
             if DEBUG:
                 print "8xyE - SHL Vx {, Vy} - Set Vx = Vx SHL 1"
-            if register_v[second_nibble] >> 3 == 1:
-                register_v[int("f", 16)] = 1
-            else:
-                register_v[int("f", 16)] = 0
-            register_v[second_nibble] << 1
+            register_v[int("F", 16)] = (register_v[second_nibble] & int(b'10000000')) >> 7
+            register_v[second_nibble] = register_v[second_nibble] << 1
             continue
 
         # end of 8 opcodes
@@ -504,9 +502,7 @@ while True:
         See instruction 8xy3 for more information on XOR, and section 2.4, Display, for more information on the Chip-8 screen and sprites."
         if DEBUG:
             print "Dxyn - DRW Vx, Vy, nibble - Display n-byte sprite starting at memory location I at (Vx, Vy), set VF = collision"
-        #x = second_nibble
         x = register_v[second_nibble]
-        #y = third_nibble
         y = register_v[third_nibble]
 
         the_bytes = ram[register_i:register_i + fourth_nibble]
@@ -534,7 +530,6 @@ while True:
                 stdscr.addstr(y, x, output, curses.COLOR_WHITE)
 
         stdscr.refresh()
-        time.sleep(0.01)
         continue
 
     if first_nibble == int("E", 16):
@@ -575,6 +570,7 @@ while True:
             if DEBUG:
                 print "Fx15 - LD DT, Vx - Set delay timer = Vx"
             delay_timer = register_v[second_nibble]
+            delay_timer_updated = time.time()
             continue
 
         if bytes[1] == int("18", 16):
@@ -582,13 +578,14 @@ while True:
             if DEBUG:
                 print "Fx18 - LD ST, Vx - Set sound timer = Vx"
             sound_timer = register_v[second_nibble]
+            sound_timer_updated = time.time()
             continue
 
         if bytes[1] == int("1E", 16):
             "The values of I and Vx are added, and the results are stored in I"
             if DEBUG:
                 print "Fx1E - ADD I, Vx - Set I = I + Vx"
-            register_i = register_i + register_v[second_nibble]
+            register_i += register_v[second_nibble]
             continue
 
         if bytes[1] == int("29", 16):
@@ -602,20 +599,17 @@ while True:
             "The interpreter takes the decimal value of Vx, and places the hundreds digit in memory at location in I, the tens digit at location I+1, and the ones digit at location I+2"
             if DEBUG:
                 print "Fx33 - LD B, Vx - Store BCD representation of Vx in memory locations I, I+1, and I+2"
-            val = register_v[second_nibble]
-            hundreds = val / 100
-            tens = (val - (hundreds * 100)) / 10
-            ones = (val - (hundreds * 100) - (tens * 10))
-            ram[register_i] = hundreds
-            ram[register_i + 1] = tens
-            ram[register_i + 2] = ones
+            bcd_value = '{:03d}'.format(register_v[second_nibble])
+            ram[register_i] = int(bcd_value[0])
+            ram[register_i + 1] = int(bcd_value[1])
+            ram[register_i + 2] = int(bcd_value[2])
             continue
 
         if bytes[1] == int("55", 16):
             "The interpreter copies the values of registers V0 through Vx into memory, starting at the address in I"
             if DEBUG:
                 print "Fx55 - LD [I], Vx - Store registers V0 through Vx in memory starting at location I"
-            for i in range(second_nibble):
+            for i in range(second_nibble + 1):
                 ram[register_i + i] = register_v[i]
             continue
 
@@ -623,7 +617,7 @@ while True:
             "The interpreter reads values from memory starting at location I into registers V0 through Vx"
             if DEBUG:
                 print "Fx65 - LD Vx, [I] - Read registers V0 through Vx from memory starting at location I"
-            for i in range(second_nibble):
+            for i in range(second_nibble + 1):
                 register_v[i] = ram[register_i + i]
             continue
         # end of F opcodes
@@ -631,3 +625,5 @@ while True:
     stdscr.addstr(32, 0, "TODO: %s" % (map(hex, bytes)))
 
 # end of the program loop
+
+# TODO: use 0xF (no quotes or anything) instead of int("F", 16)
