@@ -1,3 +1,5 @@
+import random
+import time
 """
 http://devernay.free.fr/hacks/chip8/C8TECH10.HTM#0.0
 
@@ -108,10 +110,15 @@ Chip-8 draws graphics on screen through the use of sprites. A sprite is a group 
 
 Programs may also refer to a group of sprites representing the hexadecimal digits 0 through F. These sprites are 5 bytes long, or 8x5 pixels. The data should be stored in the interpreter area of Chip-8 memory (0x000 to 0x1FF). Below is a listing of each character's bytes, in binary and hexadecimal:
 """
-display = [0] * 64 * 32
+# display = [0] * 64 * 32
+display = []
+for _ in range(32):
+    display.append([0] * 64)
+print len(display)
 
 # TODO: put sprites into ram? (should be in 0x000 to 0x1FF)
-sprites = [] * 16
+# 16 sprites made up of 5x bytes each
+sprites = [ [0] * 5 ] * 16
 
 sprites[0] = [
     b'11110000',
@@ -269,8 +276,17 @@ also super chip 48 has additional stuff
 # opcodes are all 2 bytes
 # init bytes variable so the first while loop runs
 while True:
-    print "PC: %s" % program_counter
-    print "SP: %s" % stack_pointer
+
+    # TODO: sound timer
+
+    if delay_timer > 0:
+        # decreases by 1 at 60hz
+        print "sleeping for delay timer, currently %s" % delay_timer
+        time.sleep(float(1) / 60 * delay_timer)
+        delay_timer = 0
+
+    # print "PC: %s" % program_counter
+    # print "SP: %s" % stack_pointer
     bytes = ram[program_counter] + ram[program_counter + 1]
     program_counter += 2
     # human readable hex out:
@@ -457,17 +473,26 @@ while True:
         "The program counter is set to nnn plus the value of V0."
         continue
 
+    if first_nibble == int("B", 16):
+        "The interpreter generates a random number from 0 to 255, which is then ANDed with the value kk. The results are stored in Vx \
+        See instruction 8xy2 for more information on AND"
+        print "Cxkk - RND Vx, byte - Set Vx = random byte AND kk"
+        register_v[second_nibble] = random.randint(0, 255) & bytes[1]
+        continue
+
     """
-    Cxkk - RND Vx, byte
-    Set Vx = random byte AND kk.
-    The interpreter generates a random number from 0 to 255, which is then ANDed with the value kk. The results are stored in Vx. See instruction 8xy2 for more information on AND.
+    if first_nibble == int("D", 16):
+        "The interpreter reads n bytes from memory, starting at the address stored in I \
+        These bytes are then displayed as sprites on screen at coordinates (Vx, Vy) \
+        Sprites are XORed onto the existing screen. If this causes any pixels to be erased, VF is set to 1, otherwise it is set to 0 \
+        If the sprite is positioned so part of it is outside the coordinates of the display, it wraps around to the opposite side of the screen \
+        See instruction 8xy3 for more information on XOR, and section 2.4, Display, for more information on the Chip-8 screen and sprites."
+        print "Dxyn - DRW Vx, Vy, nibble - Display n-byte sprite starting at memory location I at (Vx, Vy), set VF = collision"
+        # for i in range(fourth_nibble):
+        #     ram[register_i + i]
+    """
 
-
-    Dxyn - DRW Vx, Vy, nibble
-    Display n-byte sprite starting at memory location I at (Vx, Vy), set VF = collision.
-    The interpreter reads n bytes from memory, starting at the address stored in I. These bytes are then displayed as sprites on screen at coordinates (Vx, Vy). Sprites are XORed onto the existing screen. If this causes any pixels to be erased, VF is set to 1, otherwise it is set to 0. If the sprite is positioned so part of it is outside the coordinates of the display, it wraps around to the opposite side of the screen. See instruction 8xy3 for more information on XOR, and section 2.4, Display, for more information on the Chip-8 screen and sprites.
-
-
+    """
     Ex9E - SKP Vx
     Skip next instruction if key with the value of Vx is pressed.
     Checks the keyboard, and if the key corresponding to the value of Vx is currently in the down position, PC is increased by 2.
@@ -476,70 +501,68 @@ while True:
     ExA1 - SKNP Vx
     Skip next instruction if key with the value of Vx is not pressed.
     Checks the keyboard, and if the key corresponding to the value of Vx is currently in the up position, PC is increased by 2.
-
-
-    Fx07 - LD Vx, DT
-    Set Vx = delay timer value.
-    The value of DT is placed into Vx.
-
-
-    Fx0A - LD Vx, K
-    Wait for a key press, store the value of the key in Vx.
-    All execution stops until a key is pressed, then the value of that key is stored in Vx.
-
-
-    Fx15 - LD DT, Vx
-    Set delay timer = Vx.
-    DT is set equal to the value of Vx.
-            else:
-                register_v[int("f", 16)] = 0
-
-
-    Fx18 - LD ST, Vx
-    Set sound timer = Vx.
-    ST is set equal to the value of Vx.
-
     """
 
-    if first_nibble == int("B", 16):
-        "The values of I and Vx are added, and the results are stored in I"
-        print "Fx1E - ADD I, Vx - Set I = I + Vx"
-        register_i = register_i + register_v[second_nibble]
-        continue
+    if first_nibble == int("F", 16):
 
-    """
-    Fx29 - LD F, Vx
-    Set I = location of sprite for digit Vx.
+        if bytes[1] == int("07", 16):
+            "The value of DT is placed into Vx"
+            print "Fx07 - LD Vx, DT - Set Vx = delay timer value"
+            register_v[second_nibble] = delay_timer
+            continue
 
-    The value of I is set to the location for the hexadecimal sprite corresponding to the value of Vx. See section 2.4, Display, for more information on the Chip-8 hexadecimal font.
+        """
+        Fx0A - LD Vx, K
+        Wait for a key press, store the value of the key in Vx.
+        All execution stops until a key is pressed, then the value of that key is stored in Vx.
+        """
+
+        if bytes[1] == int("15", 16):
+            "DT is set equal to the value of Vx"
+            print "Fx15 - LD DT, Vx - Set delay timer = Vx"
+            delay_timer = register_v[second_nibble]
+            continue
+
+        if bytes[1] == int("18", 16):
+            "ST is set equal to the value of Vx"
+            print "Fx18 - LD ST, Vx - Set sound timer = Vx"
+            sound_timer = register_v[second_nibble]
+            continue
+
+        if bytes[1] == int("1E", 16):
+            "The values of I and Vx are added, and the results are stored in I"
+            print "Fx1E - ADD I, Vx - Set I = I + Vx"
+            register_i = register_i + register_v[second_nibble]
+            continue
+
+        """
+        Fx29 - LD F, Vx
+        Set I = location of sprite for digit Vx.
+
+        The value of I is set to the location for the hexadecimal sprite corresponding to the value of Vx. See section 2.4, Display, for more information on the Chip-8 hexadecimal font.
 
 
-    Fx33 - LD B, Vx
-    Store BCD representation of Vx in memory locations I, I+1, and I+2.
+        Fx33 - LD B, Vx
+        Store BCD representation of Vx in memory locations I, I+1, and I+2.
 
-    The interpreter takes the decimal value of Vx, and places the hundreds digit in memory at location in I, the tens digit at location I+1, and the ones digit at location I+2.
-
-
-    Fx55 - LD [I], Vx
-    Store registers V0 through Vx in memory starting at location I.
-
-    The interpreter copies the values of registers V0 through Vx into memory, starting at the address in I.
+        The interpreter takes the decimal value of Vx, and places the hundreds digit in memory at location in I, the tens digit at location I+1, and the ones digit at location I+2.
 
 
-    Fx65 - LD Vx, [I]
-    Read registers V0 through Vx from memory starting at location I.
+        Fx55 - LD [I], Vx
+        Store registers V0 through Vx in memory starting at location I.
 
-    The interpreter reads values from memory starting at location I into registers V0 through Vx.
-    ram[register_i]
-    register_v[]
-    loop second_nibble times
-
-    """
+        The interpreter copies the values of registers V0 through Vx into memory, starting at the address in I.
+        """
+        if bytes[1] == int("65", 16):
+            "The interpreter reads values from memory starting at location I into registers V0 through Vx"
+            print "Fx65 - LD Vx, [I] - Read registers V0 through Vx from memory starting at location I"
+            for i in range(second_nibble):
+                register_v[i] = ram[register_i + i]
+            continue
+        # end of F opcodes
 
 # end of the program loop
 
-# 6a02
-# 3f0c
 
 
 
